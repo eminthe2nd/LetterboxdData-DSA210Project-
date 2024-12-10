@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+import statsmodels.api as sm
 from scipy.stats import ttest_ind
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
@@ -203,6 +204,19 @@ correlation_matrix = data.corr()
 sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm')
 plt.title('Correlation Heatmap')
 plt.show()
+
+mean_diff = post_year.mean() - pre_year.mean()
+pooled_std = np.sqrt((pre_year.var() + post_year.var()) / 2)
+effect_size = mean_diff / pooled_std
+print(f"Cohen's d (Effect Size): {effect_size}")
+
+data['Is_Post_Year'] = (data['Release_year'] >= year_split).astype(int)
+X = data[['Runtime', 'Is_Post_Year']]
+X = sm.add_constant(X)
+y = data['Average_rating']
+
+model = sm.OLS(y, X).fit()
+print(model.summary())
 
 data.info(), data.head()
 
