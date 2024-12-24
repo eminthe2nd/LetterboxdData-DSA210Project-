@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import statsmodels.api as sm
-from scipy.stats import ttest_ind
+from scipy.stats import ttest_ind, shapiro
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LinearRegression
@@ -198,16 +198,72 @@ model.fit(X, y)
 coefficients = pd.DataFrame(model.coef_, X.columns, columns=['Coefficient'])
 print(coefficients)
 
+predictions = model.predict(X)
+mse = mean_squared_error(y, predictions)
+rmse = np.sqrt(mse)
+print(f'MSE: {mse}')
+print(f'RMSE: {rmse}')
+
 rf_model = RandomForestRegressor(n_estimators=100, random_state=42)
 rf_model.fit(X, y)
 
 importances = pd.DataFrame(rf_model.feature_importances_, X.columns, columns=['Importance'])
 importances.sort_values(by='Importance', ascending=False).head(10)
 
-predictions = model.predict(X)
-mse = mean_squared_error(y, predictions)
-rmse = np.sqrt(mse)
-print(f'RMSE: {rmse}')
+predictions = rf_model.predict(X)
+rfmse = mean_squared_error(y, predictions)
+rfrmse = np.sqrt(rfmse)
+print(f'rfMSE: {rfmse}')
+print(f'rfRMSE: {rfrmse}')
+
+pre_year = data[data['Release_year'] < year_split]['Average_rating']
+post_year = data[data['Release_year'] >= year_split]['Average_rating']
+
+print("Shapiro-Wilk Test for Pre-Year Data:")
+pre_statistic, pre_p_value = shapiro(pre_year)
+print(f"Pre-Year Shapiro-Wilk Test Statistic: {pre_statistic}")
+print(f"Pre-Year P-value: {pre_p_value}")
+
+print("Shapiro-Wilk Test for Post-Year Data:")
+post_statistic, post_p_value = shapiro(post_year)
+print(f"Post-Year Shapiro-Wilk Test Statistic: {post_statistic}")
+print(f"Post-Year P-value: {post_p_value}")
+
+if pre_p_value > 0.05:
+    print("Pre-Year data follows a normal distribution (fail to reject the null hypothesis).")
+else:
+    print("Pre-Year data does not follow a normal distribution (reject the null hypothesis).")
+
+if post_p_value > 0.05:
+    print("Post-Year data follows a normal distribution (fail to reject the null hypothesis).")
+else:
+    print("Post-Year data does not follow a normal distribution (reject the null hypothesis).")
+
+if pre_p_value > 0.05 and post_p_value > 0.05:
+    t_stat, p_value = ttest_ind(pre_year, post_year, nan_policy='omit')
+    print(f"T-statistic: {t_stat}, P-value: {p_value}")
+
+    if p_value < 0.05:
+        print("Reject the null hypothesis: Ratings differ before and after the year.")
+    else:
+        print("Fail to reject the null hypothesis: No significant difference in ratings.")
+else:
+    print("Since the data is not normally distributed, consider using a non-parametric test (e.g., Mann-Whitney U test).")
+    
+correlation_runtime_rating = data[['Runtime', 'Average_rating']].corr().iloc[0, 1]
+
+print(f"Pearson Correlation between Runtime and Average Rating: {correlation_runtime_rating}")
+
+data['Is_Post_Year'] = (data['Release_year'] >= year_split).astype(int)
+X = data[['Runtime', 'Release_year', 'Decade']]
+X = sm.add_constant(X)
+y = data['Average_rating']
+
+model = sm.OLS(y, X).fit()
+
+p_values = model.pvalues
+print("\nP-values for coefficients:")
+print(p_values)
 
 data.info()
 data.describe()
